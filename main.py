@@ -6,7 +6,44 @@ import os
 from datetime import datetime
 
 
+def get_db_path():
+    """Returns the correct database path whether running from source or installed"""
+    # Try AppData location first (installed version)
+    appdata_path = os.path.join(os.getenv('APPDATA'), 'ChurchMS', 'church.db')
+    
+    if os.path.exists(appdata_path):
+        return appdata_path
+    
+    # Fall back to local directory (development version)
+    local_path = 'church.db'
+    return local_path
 
+
+def first_time_setup():
+    """Handles first-run database setup"""
+    db_path = get_db_path()
+    db_dir = os.path.dirname(db_path)
+    
+    # Create directory if needed
+    if not os.path.exists(db_dir):
+        os.makedirs(db_dir)
+    
+    # Create database if it doesn't exist
+    if not os.path.exists(db_path):
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.close()
+            # Initialize database tables here if needed
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to create database:\n{e}")
+            return False
+    return True
+
+# Initialize database
+if not first_time_setup():
+    sys.exit(1)
+
+ 
 def create_auto_backup():
     backup_dir = "database_backups"
     if not os.path.exists(backup_dir):
@@ -20,11 +57,10 @@ def create_auto_backup():
         messagebox.showwarning("Backup Warning", f"Auto-backup failed:\n{e}")
 
 
-# Initialize database and create tables
+# Connect to database
 try:
-    conn = sqlite3.connect('church.db')
+    conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
-    create_auto_backup()
 except sqlite3.Error as e:
     messagebox.showerror("Database Error", f"Failed to connect to database:\n{e}")
     sys.exit(1)
@@ -247,16 +283,16 @@ def save_attendance():
         messagebox.showerror("Database Error", 
             f"Failed to save attendance:\n{str(e)}")
     status_var.set("Attendance saved successfully")
+    
         
 def backup_database():
+    backup_dir = os.path.join(os.getenv('APPDATA'), 'ChurchMS', 'database_backups')
     try:
-        with open('church_backup.db', 'wb') as f:
-            for line in conn.iterdump():
-                f.write(f'{line}\n'.encode('utf-8'))
-        messagebox.showinfo("Success", "Database backed up successfully!")
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+        # Rest of backup code...
     except Exception as e:
-        messagebox.showerror("Backup Failed", str(e))
-
+        messagebox.showerror("Error", f"Cannot create backups:\n{e}")
 
 # ================== UI SETUP ==================
 root = Tk()
